@@ -58,15 +58,15 @@ for i = 1:length(PicNumList)
 
 end
 
-%% 新增：计算卫星相对于目标的径向速度
-sat_positions = enuCaliGCPInfoList(:,1:3);
-sat_velocities = enuCaliGCPInfoList(:,4:6);
+%% 新增：计算机载平台相对于目标的径向速度
+platform_positions = enuCaliGCPInfoList(:,1:3);
+platform_velocities = enuCaliGCPInfoList(:,4:6);
 target_positions = enuCaliGCPInfoList(:,8:10);
 % 计算指向目标的向量，并归一化
-relative_dir = target_positions - sat_positions;
+relative_dir = target_positions - platform_positions;
 unit_relative_dir = relative_dir ./ vecnorm(relative_dir, 2, 2);
-% 计算径向速度（单位：与卫星速度相同的单位）
-radial_velocity = sum(sat_velocities .* unit_relative_dir, 2);
+% 计算径向速度（单位：与机载平台速度相同的单位）
+radial_velocity = sum(platform_velocities .* unit_relative_dir, 2);
 fprintf('各控制点径向速度：\n'); disp(radial_velocity);
 
 %% 使用我们的方法进行定位
@@ -74,34 +74,34 @@ fprintf('各控制点径向速度：\n'); disp(radial_velocity);
 velocitiesModel_our.modelFit = [v_fit_x, v_fit_y, v_fit_z];
 velocitiesModel_our.V_base = V_base;
 
-%% 新增：计算修正后卫星相对于目标的径向速度
+%% 新增：计算修正后机载平台相对于目标的径向速度
 m = size(enuCaliGCPInfoList,1);  % 先定义m
-sat_positions = enuCaliGCPInfoList(:,1:3)-[11.45 6.96 0];
-sat_velocities = repmat(velocitiesModel_our.V_base, m, 1);
+platform_positions = enuCaliGCPInfoList(:,1:3)-[11.45 6.96 0];
+platform_velocities = repmat(velocitiesModel_our.V_base, m, 1);
 target_positions = enuCaliGCPInfoList(:,8:10);
 % 计算指向目标的向量，并归一化
-relative_dir = target_positions - sat_positions;
+relative_dir = target_positions - platform_positions;
 unit_relative_dir = relative_dir ./ vecnorm(relative_dir, 2, 2);
-% 计算径向速度（单位：与卫星速度相同的单位）
-radial_velocity = sum(sat_velocities .* unit_relative_dir, 2);
+% 计算径向速度（单位：与机载平台速度相同的单位）
+radial_velocity = sum(platform_velocities .* unit_relative_dir, 2);
 fprintf('修正后各控制点径向速度：\n'); disp(radial_velocity);
 
-%% 新增：使用真值计算修正后卫星相对于目标的径向速度
+%% 新增：使用真值计算修正后机载平台相对于目标的径向速度
 m = size(enuCaliGCPInfoList,1);  % 先定义m
-sat_positions = enuCaliGCPInfoList(:,1:3)-[18.45 11.22 0];
-sat_velocities = repmat(velocitiesModel_our.V_base, m, 1);
+platform_positions = enuCaliGCPInfoList(:,1:3)-[18.45 11.22 0];
+platform_velocities = repmat(velocitiesModel_our.V_base, m, 1);
 target_positions = enuCaliGCPInfoList(:,8:10);
 % 计算指向目标的向量，并归一化
-relative_dir = target_positions - sat_positions;
+relative_dir = target_positions - platform_positions;
 unit_relative_dir = relative_dir ./ vecnorm(relative_dir, 2, 2);
-% 计算径向速度（单位：与卫星速度相同的单位）
-radial_velocity = sum(sat_velocities .* unit_relative_dir, 2);
+% 计算径向速度（单位：与机载平台速度相同的单位）
+radial_velocity = sum(platform_velocities .* unit_relative_dir, 2);
 fprintf('修正后各控制点径向速度：\n'); disp(radial_velocity);
 
 %% 计算几何定标参数（使用SARGeoCali_RD_normal）
 m = size(enuCaliGCPInfoList,1);
-sat_positions_ob = enuCaliGCPInfoList(:,1:3);
-sat_velocities_ob = enuCaliGCPInfoList(:,4:6);
+platform_positions_ob = enuCaliGCPInfoList(:,1:3);
+platform_velocities_ob = enuCaliGCPInfoList(:,4:6);
 control_points_ob = enuCaliGCPInfoList(:,8:10);
 measured_ranges = enuCaliGCPInfoList(:,7);
 wavelength = enuCaliGCPInfoList(1,11);
@@ -109,7 +109,7 @@ doppler_shifts_ob = enuCaliGCPInfoList(:,12);
 azimuthPix = enuCaliGCPInfoList(:,14);
 
 tic;
-[range_bias, pos_bias] = SARGeoCali_RD(m, sat_positions_ob, control_points_ob, measured_ranges, sat_velocities_ob, wavelength, doppler_shifts_ob);
+[range_bias, pos_bias] = SARGeoCali_RD(m, platform_positions_ob, control_points_ob, measured_ranges, platform_velocities_ob, wavelength, doppler_shifts_ob);
 t_RD = toc;
 fprintf('RD: range_bias = %f, pos_bias = %f, time = %f s\n', range_bias, pos_bias, t_RD);
 
@@ -120,31 +120,31 @@ fprintf('RD: range_bias = %f, pos_bias = %f, time = %f s\n', range_bias, pos_bia
 velocitiesModel = [v_fit_x, v_fit_y, v_fit_z];
 % 计算拟合后的速度
 time_idx = 3000;
-sat_velocities_fit(1,1) = polyval(v_fit_x, time_idx);
-sat_velocities_fit(1,2) = polyval(v_fit_y, time_idx);
-sat_velocities_fit(1,3) = polyval(v_fit_z, time_idx);
+platform_velocities_fit(1,1) = polyval(v_fit_x, time_idx);
+platform_velocities_fit(1,2) = polyval(v_fit_y, time_idx);
+platform_velocities_fit(1,3) = polyval(v_fit_z, time_idx);
 
 tic;
-[range_bias, pos_bias] = SARGeoCali_RD_VC(m, sat_positions_ob, control_points_ob, measured_ranges, sat_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel, azimuthPix);
+[range_bias, pos_bias] = SARGeoCali_RD_VC(m, platform_positions_ob, control_points_ob, measured_ranges, platform_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel, azimuthPix);
 t_RD_VC = toc;
 fprintf('IFP-VC: range_bias= %f, pos_bias = %f, time = %f s\n', range_bias, pos_bias, t_RD_VC);
 
 
-% [range_bias, pos_bias] = SARGeoCali_RD_normal(m, sat_positions_ob, control_points_ob, measured_ranges, sat_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel_our);
+% [range_bias, pos_bias] = SARGeoCali_RD_normal(m, platform_positions_ob, control_points_ob, measured_ranges, platform_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel_our);
 % fprintf('RD-normal: range_bias = %f, pos_bias = %f\n', range_bias, pos_bias);
 
 tic;
-[range_bias, pos_bias] = SARGeoCali_RD_our(m, sat_positions_ob, control_points_ob, measured_ranges, sat_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel_our, azimuthPix);
+[range_bias, pos_bias] = SARGeoCali_RD_our(m, platform_positions_ob, control_points_ob, measured_ranges, platform_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel_our, azimuthPix);
 t_Our = toc;
 fprintf('Our: range_bias= %f, pos_bias = %f, time = %f s\n', range_bias, pos_bias, t_Our);
 
 tic;
-[range_bias, pos_bias] = SARGeoCali_RD_our_iter(m, sat_positions_ob, control_points_ob, measured_ranges, sat_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel_our, azimuthPix);
+[range_bias, pos_bias] = SARGeoCali_RD_our_iter(m, platform_positions_ob, control_points_ob, measured_ranges, platform_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel_our, azimuthPix);
 t_Our_iter = toc;
 fprintf('Our_iter: range_bias= %f, pos_bias = %f, time = %f s\n', range_bias, pos_bias, t_Our_iter);
 
 tic;
-[range_bias, pos_bias, solved_velocitiesModel] = SARGeoCali_RD_our_Unif(m, sat_positions_ob, control_points_ob, measured_ranges, sat_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel_our, azimuthPix);
+[range_bias, pos_bias, solved_velocitiesModel] = SARGeoCali_RD_our_Unif(m, platform_positions_ob, control_points_ob, measured_ranges, platform_velocities_ob, wavelength, doppler_shifts_ob, velocitiesModel_our, [...]);
 t_Our_Unif = toc;
 fprintf('Our_Unif: range_bias= %f, pos_bias = %f, time = %f s\n', range_bias, pos_bias, t_Our_Unif);
 
@@ -177,26 +177,26 @@ function caliGCPInfo = SARGeoCaliAuto(picNum,gcp,flightModel,DEM,DEMR, pathView)
     rangePixel = ObjectLoctionInfoList1(gcp,2);
     azimuthPixel = ObjectLoctionInfoList1(gcp,3);
 
-    % 卫星观测位置(m×3矩阵)卫星观测速度(m×3矩阵)控制点观测位置(m×3矩阵) 测量距离向量(m×1) 雷达波长(米) 多普勒频移观测值(m×1)
+    % 机载平台观测位置(m×3矩阵)机载平台观测速度(m×3矩阵)控制点观测位置(m×3矩阵) 测量距离向量(m×1) 雷达波长(米) 多普勒频移观测值(m×1)
     caliGCPInfo = [AirplanePositionLonLat(1) AirplanePositionLonLat(2) h0 VENU(1) VENU(2) VENU(3) R pointLocationInfo(4) ...
      pointLocationInfo(5) Hp_t 0.03 0 rangePixel azimuthPixel];
 end
 
 function [coeff_x, coeff_y, coeff_z] = velocitiesFit(pathView)
-    % 获取三维速度数据（假设存在sat_velocities变量）
+    % 获取三维速度数据（假设存在platform_velocities变量）
     % 原始速度数据格式应为N×3矩阵：X/Y/Z速度分量    
     % pathView = 'D:/0_a_Data_Center_RD/肇庆定位/';
     [SarInfo1, GDn1, ~] = readSARTxt(pathView);
     GDn = GDn1(2:end,:);
-    sat_velocities = GDn(:,2:4);
+    platform_velocities = GDn(:,2:4);
     Imgi = SarInfo1(5);      % 图像总行 (方位)
     subImgi = Imgi/8;        % 子图行数
     t = 1:subImgi:Imgi;      % 子图采样点方位时间索引 
     
     % 对每个分量进行一阶多项式拟合
-    coeff_x = polyfit(t, sat_velocities(:,1), 1);
-    coeff_y = polyfit(t, sat_velocities(:,2), 1);
-    coeff_z = polyfit(t, sat_velocities(:,3), 1);
+    coeff_x = polyfit(t, platform_velocities(:,1), 1);
+    coeff_y = polyfit(t, platform_velocities(:,2), 1);
+    coeff_z = polyfit(t, platform_velocities(:,3), 1);
     
     % 计算拟合速度
     % fit_x = polyval(coeff_x, t);
@@ -211,26 +211,26 @@ function [coeff_x, coeff_y, coeff_z] = velocitiesFit(pathView)
     % % 绘制拟合效果图
     % figure;
     % subplot(3,1,1)
-    % plot(t, sat_velocities(:,1), 'bo', t, fit_x, 'r-');
+    % plot(t, platform_velocities(:,1), 'bo', t, fit_x, 'r-');
     % title('X方向速度拟合');
     % legend('原始数据', '拟合曲线');
     % 
     % subplot(3,1,2)
-    % plot(t, sat_velocities(:,2), 'go', t, fit_y, 'r-');
+    % plot(t, platform_velocities(:,2), 'go', t, fit_y, 'r-');
     % title('Y方向速度拟合');
     % 
     % subplot(3,1,3)
-    % plot(t, sat_velocities(:,3), 'ko', t, fit_z, 'r-');
+    % plot(t, platform_velocities(:,3), 'ko', t, fit_z, 'r-');
     % title('Z方向速度拟合');
 end
 
 function [coeff_x, coeff_y, coeff_z, V_base] = velocitiesFit_our(pathView)
-    % 获取三维速度数据（假设存在sat_velocities变量）
+    % 获取三维速度数据（假设存在platform_velocities变量）
     % 原始速度数据格式应为N×3矩阵：X/Y/Z速度分量    
     % pathView = 'D:/0_a_Data_Center_RD/肇庆定位/';
     [SarInfo1, GDn1, ~] = readSARTxt(pathView);
     GDn = GDn1(2:end,:);
-    sat_velocities = GDn(:,2:4);
+    platform_velocities = GDn(:,2:4);
     Imgi = SarInfo1(5);      % 图像总行 (方位)
     subImgi = Imgi/8;        % 子图行数
     t = 1:subImgi:Imgi;      % 子图采样点方位时间索引 
@@ -238,11 +238,11 @@ function [coeff_x, coeff_y, coeff_z, V_base] = velocitiesFit_our(pathView)
     v_begin = GDn(1,2:4);
     v_end = GDn(end,2:4);
     V_base = (v_begin + v_end) / 2; % 计算两个向量的平均值
-    sat_velocities_res = sat_velocities - V_base;
+    platform_velocities_res = platform_velocities - V_base;
 
     % 对每个分量进行一阶多项式拟合
-    coeff_x = polyfit(t, sat_velocities_res(:,1), 1);
-    coeff_y = polyfit(t, sat_velocities_res(:,2), 1);
-    coeff_z = polyfit(t, sat_velocities_res(:,3), 1);
+    coeff_x = polyfit(t, platform_velocities_res(:,1), 1);
+    coeff_y = polyfit(t, platform_velocities_res(:,2), 1);
+    coeff_z = polyfit(t, platform_velocities_res(:,3), 1);
     
 end
