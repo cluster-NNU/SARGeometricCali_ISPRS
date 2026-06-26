@@ -28,7 +28,7 @@
 
 3. **添加函数路径**
    ```matlab
-   addpath(genpath('function'));
+   addpath(genpath('function_pcode'));
    ```
 
 4. **运行几何定标实验**
