@@ -14,8 +14,8 @@ close all
 dbstop if error
 delete *.csv
 
-addpath(".\function\")
-addpath(".\function\compare_method\")
+addpath(".\function_pcode\")
+addpath(".\function_pcode\compare_method\")
 % delete locationResult.csv
 
 % 定义matlab输出形式
