@@ -75,8 +75,6 @@ disp('处理完毕！')
 
 function SARlocationAuto_s_our(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarDirection,CaliParam,pathView)
 % 读取第一视数据
-    % pathView = ['F:\a_机载SAR图像目标定位技术\马兰SAR图像及参数文件\新疆70km条带\条带',num2str(picNum),'/'];
-    %pathView = 'D:/0_a_Data_Center_RD/肇庆定位/';
     % 读取数据
     [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
     % 数据预处理
@@ -164,8 +162,6 @@ end
 
 function SARlocationAuto_s_RD(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarDirection,CaliParam,pathView)
     % 读取第一视数据
-        % pathView = ['F:\a_机载SAR图像目标定位技术\马兰SAR图像及参数文件\新疆70km条带\条带',num2str(picNum),'/'];
-        %pathView = 'D:/0_a_Data_Center_RD/肇庆定位/';
         % 读取数据
         [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
         % 数据预处理
@@ -252,8 +248,6 @@ function SARlocationAuto_s_RD(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarD
 
 function SARlocationAuto_s_VC(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarDirection,CaliParam,pathView)
     % 读取第一视数据
-        % pathView = ['F:\a_机载SAR图像目标定位技术\马兰SAR图像及参数文件\新疆70km条带\条带',num2str(picNum),'/'];
-        %pathView = 'D:/0_a_Data_Center_RD/肇庆定位/';
         % 读取数据
         [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
         % 数据预处理
@@ -341,8 +335,6 @@ function SARlocationAuto_s_VC(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarD
 
 function SARlocationAuto_s_original(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarDirection,CaliParam,pathView)
     % 读取第一视数据
-        % pathView = ['F:\a_机载SAR图像目标定位技术\马兰SAR图像及参数文件\新疆70km条带\条带',num2str(picNum),'/'];
-        %pathView = 'D:/0_a_Data_Center_RD/肇庆定位/';
         % 读取数据
         [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
         % 数据预处理

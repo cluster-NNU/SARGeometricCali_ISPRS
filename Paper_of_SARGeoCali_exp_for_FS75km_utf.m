@@ -162,7 +162,7 @@ disp('处理完毕！')
 
 function caliGCPInfo = SARGeoCaliAuto(picNum,gcp,flightModel,DEM,DEMR, pathView)
     % 读取第一视数据
-    % pathView = ['F:\a_机载SAR图像目标定位技术\马兰SAR图像及参数文件\新疆70km条带\条带',num2str(picNum),'/'];
+    % pathView = ['**',num2str(picNum),'/'];
     PRF = 0;
     [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
     % 数据预处理
