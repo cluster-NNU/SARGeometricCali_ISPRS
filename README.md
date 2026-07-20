@@ -223,7 +223,6 @@ SARGeometricCali_ISPRS/
 - **Important**: Users must replace the hardcoded file paths in the experiment scripts with their own data paths before running.
 - The DEM file referenced in the scripts is a Copernicus GLO-30 DEM covering the experimental regions. Users should substitute their own DEM covering their study area.
 - The ERA5 refractivity data can be obtained from the [ECMWF ERA5 reanalysis](https://cds.climate.copernicus.eu/) and processed into refractivity profiles.
-- The `readSARInfo.m` utility (not included in pcode) can parse a human-readable radar parameter file (key:value format) and generate the `SARinfo.txt` and `GDinfo.txt` files automatically.
 
 ## Citation
 
@@ -234,7 +233,7 @@ If you use this code in your research, please cite our paper:
   title={A Hierarchical Geometric Calibration Framework with Radial Velocity Constraints for High-Altitude UAV-borne SAR},
   author={Xiang, Yaobing and Sun, Yuli and Lei, Lin and Ji, Kefeng and Kuang, Gangyao},
   journal={ISPRS Journal of Photogrammetry and Remote Sensing},
-  year={2025}
+  year={2026}
 }
 ```
 
