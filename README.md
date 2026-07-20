@@ -53,7 +53,7 @@ A plain text file with **19 numeric values**, one per line (no header). Read via
 
 ### File 2: `GDinfo.txt` — INS/GPS Navigation Records
 
-A space-delimited text file with **9 rows × 7 columns**. The first row is a redundant header record (automatically removed during preprocessing). Rows 2–9 contain the actual INS measurements corresponding to 8 sub-images.
+A space-delimited text file with **7 columns**. The first row is a redundant header record (automatically removed during preprocessing). Other rows contain the actual INS measurements.
 
 | Column | Parameter | Unit |
 |--------|-----------|------|
