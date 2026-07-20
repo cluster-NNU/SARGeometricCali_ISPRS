@@ -1,15 +1,28 @@
-%% 基于校正几何参数的机载SAR直接定位
-% 用于湛江90km区域，验证斜距系统误差
-% 7月21日，用于80km区域，验证斜距系统误差
-% 5月25日，新建立RHD定位模型
-% 通过控制点计算校正参数，并利用改正参数进行RD定位，RH定位；
-% 修改主要用于RH定位模型；
+%% Airborne SAR direct geolocation based on calibrated geometric parameters
+% For Zhanjiang 90km region, verify slant range systematic error
+% July 21, for 80km region, verify slant range systematic error
+% May 25, new RHD geolocation model
+% Compute correction parameters from GCPs, then perform RD and RH geolocation;
+% Modifications mainly for RH geolocation model;
 % 
 
-%% 读取数据
+%% Read data
 clc
 clear
 close all
+
+fprintf('============================================================\n');
+fprintf('  WARNING: Required inputs for this program (ZQ 90km)\n');
+fprintf('============================================================\n');
+fprintf('  1. DEM file: Copernicus DEM GeoTIFF (实验区域CopDEM.tif)\n');
+fprintf('  2. Check point folder: ZQ/CP/\n');
+fprintf('  3. Function libraries: ./function_pcode/ and ./function_pcode/compare_method/\n');
+fprintf('  4. flightModel / flightAngle / RadarDirection\n');
+fprintf('  5. PicNumList: Image index list (default: [1])\n');
+fprintf('  6. GCPList: Number of check points per image (default: [10])\n');
+fprintf('  7. CaliParam (range & azimuth bias) from calibration step\n');
+fprintf('  Please verify all paths, parameters and data before proceeding.\n');
+fprintf('============================================================\n\n');
 
 dbstop if error
 delete *.csv
@@ -18,19 +31,19 @@ addpath(".\function_pcode\")
 addpath(".\function_pcode\compare_method\")
 % delete locationResult.csv
 
-% 定义matlab输出形式
+% Set MATLAB output format
 format long
 
-% 定义地球椭球
-wgs84 = wgs84Ellipsoid('meter');  % 定义参考椭球 WGS84
-flightModel = 2;                  % 机动目标群=1、山地=3， 多目标点=2
-flightAngle = 243.22;             % 飞机航向角(度):84.9407959
-RadarDirection = 0;               % 左侧视=0，右侧视=1
+% Define Earth ellipsoid
+wgs84 = wgs84Ellipsoid('meter');  % Define WGS84 reference ellipsoid
+flightModel = 2;                  % Maneuvering target group=1, mountain=3, multi-target=2
+flightAngle = 243.22;             % Aircraft heading angle (degrees):84.9407959
+RadarDirection = 0;               % Left-looking=0, right-looking=1
 
-[DEM,DEMR] = geotiffread("D:/a_workStation_Space//0_a_Data_Center_RD/几何定标/实验区域CopDEM.tif");  % 读取DEM
+[DEM,DEMR] = geotiffread("D:/a_workStation_Space//0_a_Data_Center_RD/几何定标/实验区域CopDEM.tif");  % Read DEM
 
-PicNumList = [1];          % 图片名称
-GCPList = [10];            % 单图检查点数
+PicNumList = [1];          % Image index
+GCPList = [10];            % Number of check points per image
 
 
 %% 
@@ -66,64 +79,64 @@ for i = 1:length(PicNumList)
     % close all
 end
 
-% 输出定位结果表
+% Output geolocation result table
 % delete RangeLocationResult.csv AmziLocationResult.csv TotalLocationResult.csv
 LocResultProcess()
 
-disp('处理完毕！')
+disp('Processing complete!')
 
 
 function SARlocationAuto_s_our(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarDirection,CaliParam,pathView)
-% 读取第一视数据
-    % 读取数据
+% Read first-look data
+    % Read data
     [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
-    % 数据预处理
+    % Data preprocessing
     [AirplanePositionLonLat,h0,hp,VENU,R,delta_z,sv,pointLocationInfo,etaC,lonF,latF,gama0,PixelSizeRange,UAV] = dataPreProcess(gcp, ...
         ObjectLoctionInfoList1, GDn1, SarInfo1, flightModel, CaliParam);
 
-    %% 参数校正
+    %% Parameter correction
     sv = 0; %-17000
-    % 目标真实高程
+    % True elevation of target
     GCPTruthLoc = [pointLocationInfo(5),pointLocationInfo(4),0];
     Hp_t = readHeightFromDEM(GCPTruthLoc, DEM, DEMR);
 
-    %% 直接估计目标初始位置
-    % (大幅提高速度20'->3'(6000p)，略微降低定位精度)
-    [latInit,lonInit] = objectInitLocation(UAV, AirplanePositionLonLat, R); % 确定目标初始位置   
+    %% Directly estimate initial target position
+    % (Significantly improves speed 20'->3' (6000p), slightly reduces geolocation accuracy)
+    [latInit,lonInit] = objectInitLocation(UAV, AirplanePositionLonLat, R); % Determine initial target position   
     GCPResultLocinit = [latInit,lonInit,hp];
     GCPResultLoc = GCPResultLocinit;
-    disp('载机参数较正前快速定位');
+    disp('Fast geolocation before platform parameter correction');
     % ErrorEvalPlot_decompose(gcp,pointLocationInfo,GCPResultLoc(1),GCPResultLoc(2),hp,101,flightAngle,RadarDirection);
     
-    %% RDE 迭代定位
-    HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR); % 读取高程值
+    %% RDE iterative geolocation
+    HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR); % Read elevation value
     [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLocinit,h0,R,sv);
-    disp('RDE方法')
+    disp('RDE method')
 
     GCPResultLoc = [latT,lonT,hpT];
-    delta_H = 100;             % 设定高程差初始值
+    delta_H = 100;             % Set initial elevation difference
     flag = 1;
     while abs(delta_H) >= 1|flag<4
-        HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % 读取高程值
+        HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % Read elevation value
         [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLoc,h0,R,sv);
         GCPResultLoc = [latT,lonT,hpT];
-        HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % 读取高程值
+        HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % Read elevation value
         delta_H = HEnd - HInit;
         flag = flag + 1;
-        if flag>20 % 避免死循环
+        if flag>20 % Prevent infinite loop
             break
         end
     end
-    disp('RDE迭代方法 DEM')
+    disp('RDE iterative method with DEM')
     ErrorEvalPlot_decompose(gcp,pointLocationInfo,latT,lonT,hp,3104,flightAngle,RadarDirection);
-    RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,3104,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R); % 估计测距误差
+    RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,3104,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R); % Estimate ranging error
 
     clear latT lonT hpT 
-    %% RDE定位应用ERA5数据和射线追踪的对流层延迟
+    %% RDE geolocation with ERA5 data and ray-tracing tropospheric delay
     % hp_ = hp;
-    hp_ = hp;              % 假定对流层延迟计算高程 1300
-    % TroDelay_R1 = TroDelayCalculate(floor(hp_/10)*10,floor(h0/10)*10,R,7);  % 计算对流层延迟
-    % R_temp = R-TroDelay_R;                                                  % 进行斜距对流层延迟改正   
+    hp_ = hp;              % Assumed elevation for tropospheric delay computation 1300
+    % TroDelay_R1 = TroDelayCalculate(floor(hp_/10)*10,floor(h0/10)*10,R,7);  % Compute tropospheric delay
+    % R_temp = R-TroDelay_R;                                                  % Apply slant range tropospheric delay correction   
 
     csvFilePath = '../ZhaoqingERA5/refractivity_data.csv';
     MeteorData = readtable(csvFilePath);
@@ -131,86 +144,86 @@ function SARlocationAuto_s_our(picNum,gcp,flightModel,DEM,DEMR,flightAngle,Radar
     TroDelay_R = RayTracing.r3_total;
     R_temp = R-TroDelay_R;  
 
-    HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR);                   % 根据快速的初始定位结果读取高程值
+    HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR);                   % Read elevation based on fast initial geolocation result
     [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLocinit,h0,R_temp,sv);
     GCPResultLoc = [latT,lonT,hpT];
     
-    delta_H = 100;             % 设定高程差初始值
+    delta_H = 100;             % Set initial elevation difference
     flag = 1;
     while abs(delta_H) >= 1|flag<10
-        HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR);               % 根据位置读取高程值，循环更新
-        % 根据更新的高程值计算对流层延迟
-        RayTracing = AirSARRayTracingPlus(HInit+180, h0, R, 7, MeteorData); % 使用新的高程值计算对流层延迟
+        HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR);               % Read elevation based on position, iterative update
+        % Compute tropospheric delay with updated elevation
+        RayTracing = AirSARRayTracingPlus(HInit+180, h0, R, 7, MeteorData); % Compute tropospheric delay with new elevation
         TroDelay_R = RayTracing.r3_total;
-        R_temp = R-TroDelay_R;                                          % 更新对流层延迟补偿后的斜距
+        R_temp = R-TroDelay_R;                                          % Update slant range after tropospheric delay compensation
         [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLoc,h0,R_temp,sv);
         GCPResultLoc = [latT,lonT,hpT];
-        HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR);                % 根据更新后的位置，读取高程值
-        % 计算原始高程与更新后的高程之差
+        HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR);                % Read elevation based on updated position
+        % Compute difference between original and updated elevation
         delta_H = HEnd - HInit;
         flag = flag + 1;
-        if flag>20 % 避免死循环
+        if flag>20 % Prevent infinite loop
             break
         end
     end
-    disp('ERA5射线追踪对流层延迟补偿方法 DEM')
+    disp('ERA5 ray-tracing tropospheric delay compensation with DEM')
     ErrorEvalPlot_decompose(gcp,pointLocationInfo,latT,lonT,hp,3669,flightAngle,RadarDirection);
-    RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,3669,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R_temp); % 估计测距误差
+    RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,3669,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R_temp); % Estimate ranging error
     clear latT lonT hpT
 end
 
 
 function SARlocationAuto_s_RD(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarDirection,CaliParam,pathView)
-    % 读取第一视数据
-        % 读取数据
+    % Read first-look data
+        % Read data
         [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
-        % 数据预处理
+        % Data preprocessing
         [AirplanePositionLonLat,h0,hp,VENU,R,delta_z,sv,pointLocationInfo,etaC,lonF,latF,gama0,PixelSizeRange,UAV] = dataPreProcess(gcp, ...
             ObjectLoctionInfoList1, GDn1, SarInfo1, flightModel, CaliParam);
     
-        %% 参数校正
+        %% Parameter correction
         sv = 0; %-17000
-        % 目标真实高程
+        % True elevation of target
         GCPTruthLoc = [pointLocationInfo(5),pointLocationInfo(4),0];
         Hp_t = readHeightFromDEM(GCPTruthLoc, DEM, DEMR);
     
-        %% 直接估计目标初始位置
-        % (大幅提高速度20'->3'(6000p)，略微降低定位精度)
-        [latInit,lonInit] = objectInitLocation(UAV, AirplanePositionLonLat, R); % 确定目标初始位置   
+        %% Directly estimate initial target position
+        % (Significantly improves speed 20'->3' (6000p), slightly reduces geolocation accuracy)
+        [latInit,lonInit] = objectInitLocation(UAV, AirplanePositionLonLat, R); % Determine initial target position   
         GCPResultLocinit = [latInit,lonInit,hp];
         GCPResultLoc = GCPResultLocinit;
-        disp('载机参数较正前快速定位');
+        disp('Fast geolocation before platform parameter correction');
         % ErrorEvalPlot_decompose(gcp,pointLocationInfo,GCPResultLoc(1),GCPResultLoc(2),hp,101,flightAngle,RadarDirection);
         
-        %% RDE 迭代定位
-        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR); % 读取高程值
+        %% RDE iterative geolocation
+        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR); % Read elevation value
         [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLocinit,h0,R,sv);
-        disp('RDE方法')
+        disp('RDE method')
     
         GCPResultLoc = [latT,lonT,hpT];
-        delta_H = 100;             % 设定高程差初始值
+        delta_H = 100;             % Set initial elevation difference
         flag = 1;
         while abs(delta_H) >= 1|flag<4
-            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % 读取高程值
+            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % Read elevation value
             [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLoc,h0,R,sv);
             GCPResultLoc = [latT,lonT,hpT];
-            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % 读取高程值
+            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % Read elevation value
             delta_H = HEnd - HInit;
             flag = flag + 1;
-            if flag>20 % 避免死循环
+            if flag>20 % Prevent infinite loop
                 break
             end
         end
-        disp('RDE迭代方法 DEM')
+        disp('RDE iterative method with DEM')
         ErrorEvalPlot_decompose(gcp,pointLocationInfo,latT,lonT,hp,1104,flightAngle,RadarDirection);
-        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,1104,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R); % 估计测距误差
+        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,1104,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R); % Estimate ranging error
     
         clear latT lonT hpT 
-        %% RDE定位应用ERA5数据和射线追踪的对流层延迟
+        %% RDE geolocation with ERA5 data and ray-tracing tropospheric delay
         % hp_ = hp;
-        hp_ = hp;              % 假定对流层延迟计算高程 1300
-        % TroDelay_R1 = TroDelayCalculate(floor(hp_/10)*10,floor(h0/10)*10,R,7);  % 计算对流层延迟
-        % R_temp = R-TroDelay_R;                                                  % 进行斜距对流层延迟改正   
+        hp_ = hp;              % Assumed elevation for tropospheric delay computation 1300
+        % TroDelay_R1 = TroDelayCalculate(floor(hp_/10)*10,floor(h0/10)*10,R,7);  % Compute tropospheric delay
+        % R_temp = R-TroDelay_R;                                                  % Apply slant range tropospheric delay correction   
     
         csvFilePath = '../ZhaoqingERA5/refractivity_data.csv';
         MeteorData = readtable(csvFilePath);
@@ -218,85 +231,85 @@ function SARlocationAuto_s_RD(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarD
         TroDelay_R = RayTracing.r3_total;
         R_temp = R-TroDelay_R;  
     
-        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR);                   % 根据快速的初始定位结果读取高程值
+        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR);                   % Read elevation based on fast initial geolocation result
         [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLocinit,h0,R_temp,sv);
         GCPResultLoc = [latT,lonT,hpT];
         
-        delta_H = 100;             % 设定高程差初始值
+        delta_H = 100;             % Set initial elevation difference
         flag = 1;
         while abs(delta_H) >= 1|flag<10
-            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR);               % 根据位置读取高程值，循环更新
-            % 根据更新的高程值计算对流层延迟
-            RayTracing = AirSARRayTracingPlus(HInit+180, h0, R, 7, MeteorData); % 使用新的高程值计算对流层延迟
+            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR);               % Read elevation based on position, iterative update
+            % Compute tropospheric delay with updated elevation
+            RayTracing = AirSARRayTracingPlus(HInit+180, h0, R, 7, MeteorData); % Compute tropospheric delay with new elevation
             TroDelay_R = RayTracing.r3_total;
-            R_temp = R-TroDelay_R;                                          % 更新对流层延迟补偿后的斜距
+            R_temp = R-TroDelay_R;                                          % Update slant range after tropospheric delay compensation
             [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLoc,h0,R_temp,sv);
             GCPResultLoc = [latT,lonT,hpT];
-            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR);                % 根据更新后的位置，读取高程值
-            % 计算原始高程与更新后的高程之差
+            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR);                % Read elevation based on updated position
+            % Compute difference between original and updated elevation
             delta_H = HEnd - HInit;
             flag = flag + 1;
-            if flag>20 % 避免死循环
+            if flag>20 % Prevent infinite loop
                 break
             end
         end
-        disp('ERA5射线追踪对流层延迟补偿方法 DEM')
+        disp('ERA5 ray-tracing tropospheric delay compensation with DEM')
         ErrorEvalPlot_decompose(gcp,pointLocationInfo,latT,lonT,hp,1669,flightAngle,RadarDirection);
-        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,1669,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R_temp); % 估计测距误差
+        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,1669,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R_temp); % Estimate ranging error
         clear latT lonT hpT
     end
 
 function SARlocationAuto_s_VC(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarDirection,CaliParam,pathView)
-    % 读取第一视数据
-        % 读取数据
+    % Read first-look data
+        % Read data
         [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
-        % 数据预处理
+        % Data preprocessing
         [AirplanePositionLonLat,h0,hp,VENU,R,delta_z,sv,pointLocationInfo,etaC,lonF,latF,gama0,PixelSizeRange,UAV] = dataPreProcess(gcp, ...
             ObjectLoctionInfoList1, GDn1, SarInfo1, flightModel, CaliParam);
     
-        %% 参数校正
+        %% Parameter correction
         sv = 0; %-17000
-        % 目标真实高程
+        % True elevation of target
         GCPTruthLoc = [pointLocationInfo(5),pointLocationInfo(4),0];
         Hp_t = readHeightFromDEM(GCPTruthLoc, DEM, DEMR);
     
-        %% 直接估计目标初始位置
-        % (大幅提高速度20'->3'(6000p)，略微降低定位精度)
-        [latInit,lonInit] = objectInitLocation(UAV, AirplanePositionLonLat, R); % 确定目标初始位置   
+        %% Directly estimate initial target position
+        % (Significantly improves speed 20'->3' (6000p), slightly reduces geolocation accuracy)
+        [latInit,lonInit] = objectInitLocation(UAV, AirplanePositionLonLat, R); % Determine initial target position   
         GCPResultLocinit = [latInit,lonInit,hp];
         GCPResultLoc = GCPResultLocinit;
-        disp('载机参数较正前快速定位');
+        disp('Fast geolocation before platform parameter correction');
         % ErrorEvalPlot_decompose(gcp,pointLocationInfo,GCPResultLoc(1),GCPResultLoc(2),hp,101,flightAngle,RadarDirection);
         
-        %% RDE 迭代定位
-        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR); % 读取高程值
+        %% RDE iterative geolocation
+        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR); % Read elevation value
         [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLocinit,h0,R,sv);
-        disp('RDE方法')
+        disp('RDE method')
     
         GCPResultLoc = [latT,lonT,hpT];
-        delta_H = 100;             % 设定高程差初始值
+        delta_H = 100;             % Set initial elevation difference
         flag = 1;
         while abs(delta_H) >= 1|flag<4
-            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % 读取高程值
+            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % Read elevation value
             [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLoc,h0,R,sv);
             GCPResultLoc = [latT,lonT,hpT];
-            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % 读取高程值
+            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % Read elevation value
             delta_H = HEnd - HInit;
             flag = flag + 1;
-            if flag>20 % 避免死循环
+            if flag>20 % Prevent infinite loop
                 break
             end
         end
-        disp('RDE迭代方法 DEM')
+        disp('RDE iterative method with DEM')
         ErrorEvalPlot_decompose(gcp,pointLocationInfo,latT,lonT,hp,2104,flightAngle,RadarDirection);
-        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,2104,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R); % 估计测距误差
+        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,2104,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R); % Estimate ranging error
     
         clear latT lonT hpT 
-        %% RDE定位应用ERA5数据和射线追踪的对流层延迟
+        %% RDE geolocation with ERA5 data and ray-tracing tropospheric delay
         % hp_ = hp;
-        hp_ = hp;              % 假定对流层延迟计算高程 1300
-        % TroDelay_R1 = TroDelayCalculate(floor(hp_/10)*10,floor(h0/10)*10,R,7);  % 计算对流层延迟
-        % R_temp = R-TroDelay_R;                                                  % 进行斜距对流层延迟改正   
+        hp_ = hp;              % Assumed elevation for tropospheric delay computation 1300
+        % TroDelay_R1 = TroDelayCalculate(floor(hp_/10)*10,floor(h0/10)*10,R,7);  % Compute tropospheric delay
+        % R_temp = R-TroDelay_R;                                                  % Apply slant range tropospheric delay correction   
     
         csvFilePath = '../ZhaoqingERA5/refractivity_data.csv';
         MeteorData = readtable(csvFilePath);
@@ -304,86 +317,86 @@ function SARlocationAuto_s_VC(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarD
         TroDelay_R = RayTracing.r3_total;
         R_temp = R-TroDelay_R;  
     
-        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR);                   % 根据快速的初始定位结果读取高程值
+        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR);                   % Read elevation based on fast initial geolocation result
         [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLocinit,h0,R_temp,sv);
         GCPResultLoc = [latT,lonT,hpT];
         
-        delta_H = 100;             % 设定高程差初始值
+        delta_H = 100;             % Set initial elevation difference
         flag = 1;
         while abs(delta_H) >= 1|flag<10
-            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR);               % 根据位置读取高程值，循环更新
-            % 根据更新的高程值计算对流层延迟
-            RayTracing = AirSARRayTracingPlus(HInit+180, h0, R, 7, MeteorData); % 使用新的高程值计算对流层延迟
+            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR);               % Read elevation based on position, iterative update
+            % Compute tropospheric delay with updated elevation
+            RayTracing = AirSARRayTracingPlus(HInit+180, h0, R, 7, MeteorData); % Compute tropospheric delay with new elevation
             TroDelay_R = RayTracing.r3_total;
-            R_temp = R-TroDelay_R;                                          % 更新对流层延迟补偿后的斜距
+            R_temp = R-TroDelay_R;                                          % Update slant range after tropospheric delay compensation
             [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLoc,h0,R_temp,sv);
             GCPResultLoc = [latT,lonT,hpT];
-            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR);                % 根据更新后的位置，读取高程值
-            % 计算原始高程与更新后的高程之差
+            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR);                % Read elevation based on updated position
+            % Compute difference between original and updated elevation
             delta_H = HEnd - HInit;
             flag = flag + 1;
-            if flag>20 % 避免死循环
+            if flag>20 % Prevent infinite loop
                 break
             end
         end
-        disp('ERA5射线追踪对流层延迟补偿方法 DEM')
+        disp('ERA5 ray-tracing tropospheric delay compensation with DEM')
         ErrorEvalPlot_decompose(gcp,pointLocationInfo,latT,lonT,hp,2669,flightAngle,RadarDirection);
-        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,2669,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R_temp); % 估计测距误差
+        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,2669,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R_temp); % Estimate ranging error
         clear latT lonT hpT
     end
 
 
 function SARlocationAuto_s_original(picNum,gcp,flightModel,DEM,DEMR,flightAngle,RadarDirection,CaliParam,pathView)
-    % 读取第一视数据
-        % 读取数据
+    % Read first-look data
+        % Read data
         [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
-        % 数据预处理
+        % Data preprocessing
         [AirplanePositionLonLat,h0,hp,VENU,R,delta_z,sv,pointLocationInfo,etaC,lonF,latF,gama0,PixelSizeRange,UAV] = dataPreProcess(gcp, ...
             ObjectLoctionInfoList1, GDn1, SarInfo1, flightModel, CaliParam);
     
-        %% 参数校正
+        %% Parameter correction
         sv = 0; %-17000
-        % 目标真实高程
+        % True elevation of target
         GCPTruthLoc = [pointLocationInfo(5),pointLocationInfo(4),0];
         Hp_t = readHeightFromDEM(GCPTruthLoc, DEM, DEMR);
     
-        %% 直接估计目标初始位置
-        % (大幅提高速度20'->3'(6000p)，略微降低定位精度)
-        [latInit,lonInit] = objectInitLocation(UAV, AirplanePositionLonLat, R); % 确定目标初始位置   
+        %% Directly estimate initial target position
+        % (Significantly improves speed 20'->3' (6000p), slightly reduces geolocation accuracy)
+        [latInit,lonInit] = objectInitLocation(UAV, AirplanePositionLonLat, R); % Determine initial target position   
         GCPResultLocinit = [latInit,lonInit,hp];
         GCPResultLoc = GCPResultLocinit;
-        disp('载机参数较正前快速定位');
+        disp('Fast geolocation before platform parameter correction');
         % ErrorEvalPlot_decompose(gcp,pointLocationInfo,GCPResultLoc(1),GCPResultLoc(2),hp,101,flightAngle,RadarDirection);
         
-        %% RDE 迭代定位
-        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR); % 读取高程值
+        %% RDE iterative geolocation
+        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR); % Read elevation value
         [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLocinit,h0,R,sv);
-        disp('RDE方法')
+        disp('RDE method')
     
         GCPResultLoc = [latT,lonT,hpT];
-        delta_H = 100;             % 设定高程差初始值
+        delta_H = 100;             % Set initial elevation difference
         flag = 1;
         while abs(delta_H) >= 1|flag<4
-            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % 读取高程值
+            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % Read elevation value
             [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLoc,h0,R,sv);
             GCPResultLoc = [latT,lonT,hpT];
-            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % 读取高程值
+            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR); % Read elevation value
             delta_H = HEnd - HInit;
             flag = flag + 1;
-            if flag>20 % 避免死循环
+            if flag>20 % Prevent infinite loop
                 break
             end
         end
-        disp('RDE迭代方法 DEM')
+        disp('RDE iterative method with DEM')
         ErrorEvalPlot_decompose(gcp,pointLocationInfo,latT,lonT,hp,104,flightAngle,RadarDirection);
-        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,104,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R); % 估计测距误差
+        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,104,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R); % Estimate ranging error
     
         clear latT lonT hpT 
-        %% RDE定位应用ERA5数据和射线追踪的对流层延迟
+        %% RDE geolocation with ERA5 data and ray-tracing tropospheric delay
         % hp_ = hp;
-        hp_ = hp;              % 假定对流层延迟计算高程 1300
-        % TroDelay_R1 = TroDelayCalculate(floor(hp_/10)*10,floor(h0/10)*10,R,7);  % 计算对流层延迟
-        % R_temp = R-TroDelay_R;                                                  % 进行斜距对流层延迟改正   
+        hp_ = hp;              % Assumed elevation for tropospheric delay computation 1300
+        % TroDelay_R1 = TroDelayCalculate(floor(hp_/10)*10,floor(h0/10)*10,R,7);  % Compute tropospheric delay
+        % R_temp = R-TroDelay_R;                                                  % Apply slant range tropospheric delay correction   
     
         csvFilePath = '../ZhaoqingERA5/refractivity_data.csv';
         MeteorData = readtable(csvFilePath);
@@ -391,30 +404,30 @@ function SARlocationAuto_s_original(picNum,gcp,flightModel,DEM,DEMR,flightAngle,
         TroDelay_R = RayTracing.r3_total;
         R_temp = R-TroDelay_R;  
     
-        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR);                   % 根据快速的初始定位结果读取高程值
+        HInit = readHeightFromDEM(GCPResultLocinit,DEM,DEMR);                   % Read elevation based on fast initial geolocation result
         [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLocinit,h0,R_temp,sv);
         GCPResultLoc = [latT,lonT,hpT];
         
-        delta_H = 100;             % 设定高程差初始值
+        delta_H = 100;             % Set initial elevation difference
         flag = 1;
         while abs(delta_H) >= 1|flag<10
-            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR);               % 根据位置读取高程值，循环更新
-            % 根据更新的高程值计算对流层延迟
-            RayTracing = AirSARRayTracingPlus(HInit+180, h0, R, 7, MeteorData); % 使用新的高程值计算对流层延迟
+            HInit = readHeightFromDEM(GCPResultLoc,DEM,DEMR);               % Read elevation based on position, iterative update
+            % Compute tropospheric delay with updated elevation
+            RayTracing = AirSARRayTracingPlus(HInit+180, h0, R, 7, MeteorData); % Compute tropospheric delay with new elevation
             TroDelay_R = RayTracing.r3_total;
-            R_temp = R-TroDelay_R;                                          % 更新对流层延迟补偿后的斜距
+            R_temp = R-TroDelay_R;                                          % Update slant range after tropospheric delay compensation
             [latT,lonT,hpT] = RDEwithL_Mori(HInit, VENU,AirplanePositionLonLat,GCPResultLoc,h0,R_temp,sv);
             GCPResultLoc = [latT,lonT,hpT];
-            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR);                % 根据更新后的位置，读取高程值
-            % 计算原始高程与更新后的高程之差
+            HEnd = readHeightFromDEM(GCPResultLoc,DEM,DEMR);                % Read elevation based on updated position
+            % Compute difference between original and updated elevation
             delta_H = HEnd - HInit;
             flag = flag + 1;
-            if flag>20 % 避免死循环
+            if flag>20 % Prevent infinite loop
                 break
             end
         end
-        disp('ERA5射线追踪对流层延迟补偿方法 DEM')
+        disp('ERA5 ray-tracing tropospheric delay compensation with DEM')
         ErrorEvalPlot_decompose(gcp,pointLocationInfo,latT,lonT,hp,669,flightAngle,RadarDirection);
-        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,669,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R_temp); % 估计测距误差
+        RangeErrorAnalysis(gcp,pointLocationInfo,latT,lonT,Hp_t,669,flightAngle,RadarDirection,AirplanePositionLonLat,h0,R_temp); % Estimate ranging error
         clear latT lonT hpT
     end

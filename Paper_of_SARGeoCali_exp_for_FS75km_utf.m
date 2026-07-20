@@ -1,17 +1,28 @@
-%% 基于校正几何参数的机载SAR直接定位
-% 用佛山 75km 区域，验证斜距系统误差
-% 7月21日，用于80km区域，验证斜距系统误差
-% 5月25日，新建立RHD定位模型
+%% Airborne SAR direct geolocation based on calibrated geometric parameters
+% Using Foshan 75km area to verify slant range systematic error
+% July 21, used for 80km area to verify slant range systematic error
+% May 25, newly established RHD geolocation model
 % 
-% 通过控制点计算校正参数，并利用改正参数进行RD定位，RH定位；
+% Compute calibration parameters using GCPs, and perform RD/RH geolocation with correction parameters;
 % 
-% 修改主要用于RH定位模型；
+% Modifications mainly for RH geolocation model;
 % 
-% 原始RD定位方式；
-%% 读取数据
+% Original RD geolocation method;
+%% Read data
 clc
 clear
 close all
+
+fprintf('============================================================\n');
+fprintf('  WARNING: Required inputs for this program (FS 75km)\n');
+fprintf('============================================================\n');
+fprintf('  1. DEM file: Copernicus DEM GeoTIFF (实验区域CopDEM.tif)\n');
+fprintf('  2. GCP data folder: FSB/GCP/\n');
+fprintf('  3. Function libraries: ./function_pcode/ and ./function_pcode/compare_method/\n');
+fprintf('  4. PicNumList: Image index list (default: [1])\n');
+fprintf('  5. GCPList: Number of GCPs per image (default: [5])\n');
+fprintf('  Please verify all paths and data before proceeding.\n');
+fprintf('============================================================\n\n');
 
 dbstop if error
 delete *.csv
@@ -20,17 +31,17 @@ addpath(".\function_pcode\")
 addpath(".\function_pcode\compare_method\")
 % delete locationResult.csv
 
-% 定义matlab输出形式
+% Set MATLAB output format
 format long
-flightModel = 0; %无意义
-% 定义地球椭球
-wgs84 = wgs84Ellipsoid('meter');  % 定义参考椭球 WGS84
-% 读取DEM
-[DEM, DEMR] = readgeoraster("D:/a_workStation_Space//0_a_Data_Center_RD/几何定标/实验区域CopDEM.tif");  % 读取DEM
+flightModel = 0; % placeholder (unused)
+% Define Earth ellipsoid
+wgs84 = wgs84Ellipsoid('meter');  % Define WGS84 reference ellipsoid
+% Read DEM
+[DEM, DEMR] = readgeoraster("D:/a_workStation_Space//0_a_Data_Center_RD/几何定标/实验区域CopDEM.tif");  % Read DEM
 pathView = 'D:/a_workStation_Space//0_a_Data_Center_RD/几何定标/佛山75km定位/GCP/';
 
-PicNumList = [1];    % 图片名称
-GCPList = [5];            % 单图检查点数
+PicNumList = [1];    % Image index
+GCPList = [5];            % Number of GCPs per image
 
 for i = 1:length(PicNumList)
     picNum = PicNumList(i);
@@ -39,66 +50,66 @@ for i = 1:length(PicNumList)
     for gcp = 1:gcpR
         CaliGCPInfoList(gcp,:) = SARGeoCaliAuto(picNum,gcp,flightModel,DEM,DEMR,pathView);
     end
-    % 检查是否存在同名csv文件，若存在则删除
+    % Check if CSV file exists, delete if so
     csvFileName = 'CaliGCPInfoList.csv';
     if exist(csvFileName, 'file')
         delete(csvFileName);
     end
-    % 将CaliGCPInfoList保存为csv文件
+    % Save CaliGCPInfoList as CSV file
     writematrix(CaliGCPInfoList, csvFileName);
 
-    enuCaliGCPInfoList = geodetic2enuConversion(CaliGCPInfoList, wgs84); % 将大地坐标转换为ENU坐标系
-        % 检查是否存在同名csv文件，若存在则删除
+    enuCaliGCPInfoList = geodetic2enuConversion(CaliGCPInfoList, wgs84); % Convert geodetic coordinates to ENU coordinate system
+        % Check if CSV file exists, delete if so
     csvFileName = 'enuCaliGCPInfoList.csv';
     if exist(csvFileName, 'file')
         delete(csvFileName);
     end
-    % 将CaliGCPInfoList保存为csv文件
+    % Save CaliGCPInfoList as CSV file
     writematrix(enuCaliGCPInfoList, csvFileName);
 
 end
 
-%% 新增：计算机载平台相对于目标的径向速度
+%% Compute radial velocity of airborne platform relative to target
 sat_positions = enuCaliGCPInfoList(:,1:3);
 sat_velocities = enuCaliGCPInfoList(:,4:6);
 target_positions = enuCaliGCPInfoList(:,8:10);
-% 计算指向目标的向量，并归一化
+% Compute direction vector to target and normalize
 relative_dir = target_positions - sat_positions;
 unit_relative_dir = relative_dir ./ vecnorm(relative_dir, 2, 2);
-% 计算径向速度（单位：与机载平台速度相同的单位）
+% Compute radial velocity (same unit as platform velocity)
 radial_velocity = sum(sat_velocities .* unit_relative_dir, 2);
-fprintf('各控制点径向速度：\n'); disp(radial_velocity);
+fprintf('Radial velocity at each GCP:\n'); disp(radial_velocity);
 
-%% 使用我们的方法进行定位
+%% Velocity modeling using our method
 [v_fit_x, v_fit_y, v_fit_z, V_base] = velocitiesFit_our(pathView);
 velocitiesModel_our.modelFit = [v_fit_x, v_fit_y, v_fit_z];
 velocitiesModel_our.V_base = V_base;
 
-%% 新增：计算修正后机载平台相对于目标的径向速度
-m = size(enuCaliGCPInfoList,1);  % 先定义m
+%% Compute corrected radial velocity of platform relative to target
+m = size(enuCaliGCPInfoList,1);  % Define m first
 sat_positions = enuCaliGCPInfoList(:,1:3)-[11.45 6.96 0];
 sat_velocities = repmat(velocitiesModel_our.V_base, m, 1);
 target_positions = enuCaliGCPInfoList(:,8:10);
-% 计算指向目标的向量，并归一化
+% Compute direction vector to target and normalize
 relative_dir = target_positions - sat_positions;
 unit_relative_dir = relative_dir ./ vecnorm(relative_dir, 2, 2);
-% 计算径向速度（单位：与机载平台速度相同的单位）
+% Compute radial velocity (same unit as platform velocity)
 radial_velocity = sum(sat_velocities .* unit_relative_dir, 2);
-fprintf('修正后各控制点径向速度：\n'); disp(radial_velocity);
+fprintf('Corrected radial velocity at each GCP:\n'); disp(radial_velocity);
 
-%% 新增：使用真值计算修正后机载平台相对于目标的径向速度
-m = size(enuCaliGCPInfoList,1);  % 先定义m
+%% Compute corrected radial velocity using ground truth
+m = size(enuCaliGCPInfoList,1);  % Define m first
 sat_positions = enuCaliGCPInfoList(:,1:3)-[18.45 11.22 0];
 sat_velocities = repmat(velocitiesModel_our.V_base, m, 1);
 target_positions = enuCaliGCPInfoList(:,8:10);
-% 计算指向目标的向量，并归一化
+% Compute direction vector to target and normalize
 relative_dir = target_positions - sat_positions;
 unit_relative_dir = relative_dir ./ vecnorm(relative_dir, 2, 2);
-% 计算径向速度（单位：与机载平台速度相同的单位）
+% Compute radial velocity (same unit as platform velocity)
 radial_velocity = sum(sat_velocities .* unit_relative_dir, 2);
-fprintf('修正后各控制点径向速度：\n'); disp(radial_velocity);
+fprintf('Corrected radial velocity at each GCP:\n'); disp(radial_velocity);
 
-%% 计算几何定标参数（使用SARGeoCali_RD_normal）
+%% Compute geometric calibration parameters
 m = size(enuCaliGCPInfoList,1);
 sat_positions_ob = enuCaliGCPInfoList(:,1:3);
 sat_velocities_ob = enuCaliGCPInfoList(:,4:6);
@@ -114,11 +125,11 @@ t_RD = toc;
 fprintf('RD: range_bias = %f, pos_bias = %f, time = %f s\n', range_bias, pos_bias, t_RD);
 
 
-%% 速度拟合
+%% Velocity fitting
 [v_fit_x, v_fit_y, v_fit_z] = velocitiesFit(pathView);
 
 velocitiesModel = [v_fit_x, v_fit_y, v_fit_z];
-% 计算拟合后的速度
+% Compute fitted velocity
 time_idx = 3000;
 sat_velocities_fit(1,1) = polyval(v_fit_x, time_idx);
 sat_velocities_fit(1,2) = polyval(v_fit_y, time_idx);
@@ -157,90 +168,90 @@ fprintf('Our_iter:   %.3f ms\n', t_Our_iter*1000);
 fprintf('Our_Unif:   %.3f ms\n', t_Our_Unif*1000);
 fprintf('--------------------------------------------------\n');
 
-disp('处理完毕！')
+disp('Processing complete!')
 
 
 function caliGCPInfo = SARGeoCaliAuto(picNum,gcp,flightModel,DEM,DEMR, pathView)
-    % 读取第一视数据
+    % Read first-look data
     % pathView = ['**',num2str(picNum),'/'];
     PRF = 0;
     [SarInfo1,GDn1,ObjectLoctionInfoList1] = readSARTxt(pathView);
-    % 数据预处理
+    % Data preprocessing
     [AirplanePositionLonLat,h0,hp,VENU,R,delta_z,sv,pointLocationInfo,etaC,lonF,latF,gama0,PixelSizeRange,UAV] = CaliDataPreProcess(gcp, ...
         ObjectLoctionInfoList1, GDn1, SarInfo1, flightModel, PRF);
 
-    % 目标真实高程
+    % True elevation of target
     GCPTruthLoc = [pointLocationInfo(5),pointLocationInfo(4),0];
     Hp_t = readHeightFromDEM(GCPTruthLoc, DEM, DEMR);
     
-    % 目标像素坐标
+    % Target pixel coordinates
     rangePixel = ObjectLoctionInfoList1(gcp,2);
     azimuthPixel = ObjectLoctionInfoList1(gcp,3);
 
-    % 机载平台观测位置(m×3矩阵)机载平台观测速度(m×3矩阵)控制点观测位置(m×3矩阵) 测量距离向量(m×1) 雷达波长(米) 多普勒频移观测值(m×1)
+    % Platform position (m×3), platform velocity (m×3), GCP position (m×3), measured slant range (m×1), radar wavelength (m), Doppler shift observation (m×1)
     caliGCPInfo = [AirplanePositionLonLat(1) AirplanePositionLonLat(2) h0 VENU(1) VENU(2) VENU(3) R pointLocationInfo(4) ...
      pointLocationInfo(5) Hp_t 0.03 0 rangePixel azimuthPixel];
 end
 
 function [coeff_x, coeff_y, coeff_z] = velocitiesFit(pathView)
-    % 获取三维速度数据（假设存在sat_velocities变量）
-    % 原始速度数据格式应为N×3矩阵：X/Y/Z速度分量    
+    % Get 3D velocity data
+    % Raw velocity data format: N×3 matrix with X/Y/Z velocity components    
     % pathView = 'D:/0_a_Data_Center_RD/肇庆定位/';
     [SarInfo1, GDn1, ~] = readSARTxt(pathView);
     GDn = GDn1(2:end,:);
     sat_velocities = GDn(:,2:4);
-    Imgi = SarInfo1(5);      % 图像总行 (方位)
-    subImgi = Imgi/8;        % 子图行数
-    t = 1:subImgi:Imgi;      % 子图采样点方位时间索引 
+    Imgi = SarInfo1(5);      % Total image rows (azimuth)
+    subImgi = Imgi/8;        % Sub-image rows
+    t = 1:subImgi:Imgi;      % Azimuth time indices of sub-image sampling points 
     
-    % 对每个分量进行一阶多项式拟合
+    % First-order polynomial fitting for each component
     coeff_x = polyfit(t, sat_velocities(:,1), 1);
     coeff_y = polyfit(t, sat_velocities(:,2), 1);
     coeff_z = polyfit(t, sat_velocities(:,3), 1);
     
-    % 计算拟合速度
+    % Compute fitted velocity
     % fit_x = polyval(coeff_x, t);
     % fit_y = polyval(coeff_y, t);
     % fit_z = polyval(coeff_z, t);
     
-    % % 输出拟合参数
-    % fprintf('X方向速度拟合方程：v = %.4f*t + %.4f\n', coeff_x(1), coeff_x(2));
-    % fprintf('Y方向速度拟合方程：v = %.4f*t + %.4f\n', coeff_y(1), coeff_y(2));
-    % fprintf('Z方向速度拟合方程：v = %.4f*t + %.4f\n', coeff_z(1), coeff_z(2));
+    % % Print fitting parameters
+    % fprintf('X-direction velocity fit: v = %.4f*t + %.4f\n', coeff_x(1), coeff_x(2));
+    % fprintf('Y-direction velocity fit: v = %.4f*t + %.4f\n', coeff_y(1), coeff_y(2));
+    % fprintf('Z-direction velocity fit: v = %.4f*t + %.4f\n', coeff_z(1), coeff_z(2));
     % 
-    % % 绘制拟合效果图
+    % % Plot fitting results
     % figure;
     % subplot(3,1,1)
     % plot(t, sat_velocities(:,1), 'bo', t, fit_x, 'r-');
-    % title('X方向速度拟合');
-    % legend('原始数据', '拟合曲线');
+    % title('X-direction velocity fitting');
+    % legend('Raw data', 'Fitted curve');
     % 
     % subplot(3,1,2)
     % plot(t, sat_velocities(:,2), 'go', t, fit_y, 'r-');
-    % title('Y方向速度拟合');
+    % title('Y-direction velocity fitting');
     % 
     % subplot(3,1,3)
     % plot(t, sat_velocities(:,3), 'ko', t, fit_z, 'r-');
-    % title('Z方向速度拟合');
+    % title('Z-direction velocity fitting');
 end
 
 function [coeff_x, coeff_y, coeff_z, V_base] = velocitiesFit_our(pathView)
-    % 获取三维速度数据（假设存在sat_velocities变量）
-    % 原始速度数据格式应为N×3矩阵：X/Y/Z速度分量    
+    % Get 3D velocity data
+    % Raw velocity data format: N×3 matrix with X/Y/Z velocity components    
     % pathView = 'D:/0_a_Data_Center_RD/肇庆定位/';
     [SarInfo1, GDn1, ~] = readSARTxt(pathView);
     GDn = GDn1(2:end,:);
     sat_velocities = GDn(:,2:4);
-    Imgi = SarInfo1(5);      % 图像总行 (方位)
-    subImgi = Imgi/8;        % 子图行数
-    t = 1:subImgi:Imgi;      % 子图采样点方位时间索引 
+    Imgi = SarInfo1(5);      % Total image rows (azimuth)
+    subImgi = Imgi/8;        % Sub-image rows
+    t = 1:subImgi:Imgi;      % Azimuth time indices of sub-image sampling points 
 
     v_begin = GDn(1,2:4);
     v_end = GDn(end,2:4);
-    V_base = (v_begin + v_end) / 2; % 计算两个向量的平均值
+    V_base = (v_begin + v_end) / 2; % Compute the mean of two vectors
     sat_velocities_res = sat_velocities - V_base;
 
-    % 对每个分量进行一阶多项式拟合
+    % First-order polynomial fitting for each component
     coeff_x = polyfit(t, sat_velocities_res(:,1), 1);
     coeff_y = polyfit(t, sat_velocities_res(:,2), 1);
     coeff_z = polyfit(t, sat_velocities_res(:,3), 1);
