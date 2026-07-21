@@ -224,19 +224,6 @@ SARGeometricCali_ISPRS/
 - The DEM file referenced in the scripts is a Copernicus GLO-30 DEM covering the experimental regions. Users should substitute their own DEM covering their study area.
 - The ERA5 refractivity data can be obtained from the [ECMWF ERA5 reanalysis](https://cds.climate.copernicus.eu/) and processed into refractivity profiles.
 
-## Citation
-
-If you use this code in your research, please cite our paper:
-
-```bibtex
-@article{SARGeoCali2026,
-  title={A Hierarchical Geometric Calibration Framework with Radial Velocity Constraints for High-Altitude UAV-borne SAR},
-  author={Xiang, Yaobing and Sun, Yuli and Lei, Lin and Ji, Kefeng and Kuang, Gangyao},
-  journal={ISPRS Journal of Photogrammetry and Remote Sensing},
-  year={2026}
-}
-```
-
 ## License
 
 This project is provided for academic research purposes. 
