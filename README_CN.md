@@ -216,23 +216,11 @@ SARGeometricCali_ISPRS/
 
 ## 注意事项
 
-- `function_pcode/` 目录包含MATLAB pcode（`.p`）文件，这些是平台无关的编译MATLAB函数。它们可以像普通 `.m` 函数一样调用，但无法查看或编辑源代码。
+- `function_pcode/` 目录包含MATLAB pcode（`.p`）文件，这些是平台无关的编译MATLAB函数。
 - **重要**：用户必须在运行前将实验脚本中的硬编码文件路径替换为自己的数据路径。
 - 脚本中引用的DEM文件为覆盖实验区域的Copernicus GLO-30 DEM。用户应替换为覆盖自身研究区域的DEM。
-- ERA5折射率数据可从[ECMWF ERA5再分析数据](https://cds.climate.copernicus.eu/)获取，并处理为折射率廓线。
+- ERA5折射率数据可从[ECMWF ERA5再分析数据](https://cds.climate.copernicus.eu/)获取，并处理为折射率廓线。 
 
-## 引用
-
-如果您在研究中使用了本代码，请引用我们的论文：
-
-```bibtex
-@article{SARGeoCali2026,
-  title={A Hierarchical Geometric Calibration Framework with Radial Velocity Constraints for High-Altitude UAV-borne SAR},
-  author={Xiang, Yaobing and Sun, Yuli and Lei, Lin and Ji, Kefeng and Kuang, Gangyao},
-  journal={ISPRS Journal of Photogrammetry and Remote Sensing},
-  year={2026}
-}
-```
 
 ## 许可证
 
