@@ -229,7 +229,7 @@ SARGeometricCali_ISPRS/
 If you use this code in your research, please cite our paper:
 
 ```bibtex
-@article{SARGeoCali2025,
+@article{SARGeoCali2026,
   title={A Hierarchical Geometric Calibration Framework with Radial Velocity Constraints for High-Altitude UAV-borne SAR},
   author={Xiang, Yaobing and Sun, Yuli and Lei, Lin and Ji, Kefeng and Kuang, Gangyao},
   journal={ISPRS Journal of Photogrammetry and Remote Sensing},
